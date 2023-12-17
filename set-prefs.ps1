@@ -1,25 +1,19 @@
-$tcat = Get-MpThreatCatalog | Where-Object {
-    $_.ThreatName -like "Behavior:*Keygen*" -or `
-    $_.ThreatName -like "HackTool:*Activat*" -or `
-    $_.ThreatName -like "HackTool:*KMS*" -or `
-    $_.ThreatName -like "HackTool:*Keygen*" -or `
-    $_.ThreatName -like "PUA:*Keygen*" -or `
-    $_.ThreatName -like "PUA:*Activat*" -or `
-    $_.ThreatName -like "PUA:*KMS*" -or `
-    $_.ThreatName -like "VirTool:*Keygen*" -or `
-    $_.ThreatName -like "VirTool:*KMS*"
-}
+# collect threats to exclude from the threat catalogue, filtering using regex
+$tcat = Get-MpThreatCatalog | ? ThreatName -Match '(Behavior|HackTool|PUA|VirTool)\:.*(KeyGen|Activat|KMS).*'
 
-$prefs = Get-MpPreference
+# populate ordered hashtable with ignorable threats from the catalogue
 $ttable = [System.Management.Automation.OrderedHashtable]@{}
-
-$a = 0;$prefs.ThreatIDDefaultAction_Ids | %{
-    $ttable.Add($_,$prefs.ThreatIDDefaultAction_Actions[$a])
-    $a++
-}
-
 $tcat | %{
     $ttable[$_.ThreatID] = 6
 }
 
+# update hashtable with existing config from current defender prefs so they aren't overridden
+$prefs = Get-MpPreference
+$a = 0
+$prefs.ThreatIDDefaultAction_Ids | %{
+    $ttable[$_] = $prefs.ThreatIDDefaultAction_Actions[$a]
+    $a++
+}
+
+# set the new combined prefs into defender
 Set-MpPreference -ThreatIDDefaultAction_Ids $ttable.Keys -ThreatIDDefaultAction_Actions $ttable.Values
